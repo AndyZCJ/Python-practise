@@ -1,0 +1,40 @@
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 编辑器与系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 日志与临时文件
+*.log
+*.tmp
+
+# 训练输出与模型权重
+**/outputs/
+**/logs/
+**/checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# 数据集与压缩包
+**/data/
+*.tar
+*.tar.gz
+*.gz
+*.zip
+
+# 备份的独立 Git 仓库
+.git_backups/
