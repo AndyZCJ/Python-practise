@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 import torch.distributions as D
 import torch
-
+import os
 from configs.config import PPOConfig
 from models.policy_network import PolicyNetwork
 from models.value_network import ValueNetwork
@@ -29,7 +29,9 @@ class PPO:
         self.policy_network = policy_network
         self.value_network = value_network
         self.device = device
-
+        self.policy_optimizer = torch.optim.Adam(self.policy_network.parameters(),lr=self.config.learning_rate)
+        self.value_optimizer = torch.optim.Adam(self.value_network.parameters(), lr=self.config.learning_rate)
+        self.loss_fn = torch.nn.MSELoss()
         # TODO: 定义优化器、学习率调度器与其他训练状态
 
     def select_action(self, state: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -69,9 +71,16 @@ class PPO:
                 entropy: 形状为 (B,)
                 value: 形状为 (B, 1)
         """
+        value = self.value_network(states)
+        dist = D.Categorical(self.policy_network(states))
+        log_prob = dist.log_prob(actions)
+        entropy = dist.entropy()
+        return {
+            "log_probs":log_prob,
+            "entropy":entropy,
+            "values":value
+        }
 
-        # TODO: 实现 PPO 更新阶段所需的动作评估逻辑
-        pass
 
     def update(self, batch: Dict[str, torch.Tensor]) -> Dict[str, float]:
         """
@@ -83,9 +92,35 @@ class PPO:
         返回:
             metrics: 训练指标字典，例如策略损失、价值损失、熵奖励等
         """
+        states = batch["states"]
+        actions = batch["actions"]
+        old_log_probs = batch["old_log_probs"]
+        returns = batch["returns"]
+        advantages = batch["advantages"]
 
-        # TODO: 实现 PPO 裁剪目标、价值函数损失与多轮小批量更新
-        pass
+        eval_batch= self.evaluate_actions(states, actions)
+        new_log_probs = eval_batch["log_probs"]
+        values = eval_batch["values"]
+        entropy = eval_batch["entropy"]
+
+        r_t = torch.exp(new_log_probs-old_log_probs.detach())
+        clipped_ratio = torch.clamp(r_t, min=1-self.config.clip_epsilon, max=1+self.config.clip_epsilon)
+        surr1 = r_t*advantages
+        surr2 = clipped_ratio*advantages
+        policy_loss = -torch.min(surr1, surr2).mean()
+        value_loss = self.loss_fn(values.squeeze(dim=-1), returns)
+        loss = policy_loss + self.config.value_coef*value_loss-self.config.entropy_coef*entropy.mean()
+        self.policy_optimizer.zero_grad()
+        self.value_optimizer.zero_grad()
+        loss.backward()
+        self.policy_optimizer.step()
+        self.value_optimizer.step()
+        return {
+            "policy_loss": policy_loss.item(),
+            "value_loss": value_loss.item(),
+            "entropy" : entropy.mean().item()
+        }
+
 
     def save(self, save_path: str) -> None:
         """
@@ -93,7 +128,11 @@ class PPO:
         """
 
         # TODO: 根据你的实验需求实现模型保存逻辑
-        pass
+        policy_path = os.path.join(save_path, "policy.pth")
+        value_path = os.path.join(save_path, "value.pth")
+        torch.save(self.policy_network.state_dict(),policy_path)
+        torch.save(self.value_network.state_dict(), value_path)
+
 
     def load(self, load_path: str) -> None:
         """
@@ -101,7 +140,11 @@ class PPO:
         """
 
         # TODO: 根据你的实验需求实现模型加载逻辑
-        pass
+        policy_path = os.path.join(load_path, "policy.pth")
+        value_path = os.path.join(load_path, "value.pth")
+        self.policy_network.load(policy_path, map_location=self.config.device)
+        self.value_network.load(value_path, map_location=self.config.device)
+
 
 
 

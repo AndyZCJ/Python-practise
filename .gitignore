@@ -1,7 +1,17 @@
-# Python 缓存
+# Python 缓存与编译产物
 __pycache__/
 *.py[cod]
 *$py.class
+
+# 测试、类型检查与覆盖率缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -14,26 +24,35 @@ env/
 # 编辑器与系统文件
 .idea/
 .vscode/
+*.iml
 .DS_Store
 Thumbs.db
 
-# 日志与临时文件
-*.log
-*.tmp
+# 打包与构建产物
+build/
+dist/
+*.egg-info/
+.eggs/
 
-# 训练输出与模型权重
+# 临时文件
+*.tmp
+*.bak
+
+# 训练输出、实验目录与模型权重
 **/outputs/
 **/logs/
 **/checkpoints/
+**/runs/
+**/wandb/
 *.pt
 *.pth
 *.ckpt
+*.onnx
 
-# 数据集与压缩包
-**/data/
+# 数据目录与常见压缩数据包
+project-practise/**/data/
 *.tar
 *.tar.gz
-*.gz
 *.zip
 
 # 备份的独立 Git 仓库
