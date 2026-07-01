@@ -1,18 +1,18 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import math
 class PositionalEmbedding(nn.Module):
     def __init__(self, seq_len, embed_dim):
         super().__init__()
+        
         pe = torch.zeros(seq_len, embed_dim)
         self.position = torch.arange(0, seq_len).unsqueeze(1) #seq, 1
-        self.div_term = torch.exp(torch.arange(0, embed_dim, 2)*(-torch.log(10000.0))/embed_dim)
+        self.div_term = torch.exp(torch.arange(0, embed_dim, 2)*(-math.log(10000.0))/embed_dim) #note
         
         pe[:, 0::2] = torch.sin(self.position * self.div_term)
         pe[:, 1::2] = torch.cos(self.position * self.div_term)
-        pe = self.pe.unsqueeze(0)
-        self.register_buffer("pe", pe)
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe) #note
     def forward(self, x):
         _, seq_len, _ = x.shape
         return x + self.pe[:, :seq_len]
@@ -29,17 +29,21 @@ class MultiHeadAttention(nn.Module):
         self.drop_out = nn.Dropout(drop_out)
     
     def forward(self, q, k, v, mask=None):
-        B, N, D = q.shape
-        q, k, v = self.query(q), self.key(k), self.value(v)
-        query = q.reshape(B, N, self.num_heads, self.head_dim).transpose(0, 2, 1, 3)
-        key = k.reshape(B, N, self.num_heads, self.head_dim).transpose(0, 2, 1, 3)
-        value = v.reshape(B, N, self.num_heads, self.head_dim).transpose(0, 2, 1, 3) #B, h, N, d
+        B, q_len, D = q.shape
+        _, k_len, _ = k.shape
+        _, v_len, _ = v.shape
+        q = self.query(q)
+        k = self.key(k)
+        v =self.value(v)
+        query = q.reshape(B, q_len, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
+        key = k.reshape(B, k_len, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
+        value = v.reshape(B, v_len, self.num_heads, self.head_dim).permute(0, 2, 1, 3) #B, h, N, d
 
         attention_score = torch.matmul(query, key.transpose(-2, -1))/math.sqrt(self.head_dim) # B,h,N,N
         if mask is not None:
-            attention_score.masked_fill(mask==0, 1e-9)
-        attention = torch.matmul(value, torch.softmax(attention_score, dim=-1)) # B, h, N, d
-        attention = attention.transpose(-3, -2).contiguous().reshape(B, N, D)
+            attention_score = attention_score.masked_fill(mask==0, float("-inf"))
+        attention = torch.matmul(torch.softmax(attention_score, dim=-1), value) # B, h, N, d
+        attention = attention.transpose(-3, -2).contiguous().reshape(B, q_len, D)
         return self.drop_out(self.projection(attention))
 
 class FeedForward(nn.Module):
@@ -64,7 +68,7 @@ class EncoderLayer(nn.Module):
         self.norm2 = nn.LayerNorm(embed_dim)
         self.drop_out = nn.Dropout(drop_out)
     
-    def froward(self,src, src_mask):
+    def forward(self,src, src_mask):
         attention_output = self.attention(src,src,src, src_mask)
         src = self.norm1(src+self.drop_out(attention_output))
 
@@ -86,7 +90,6 @@ class DecoderLayer(nn.Module):
     def forward(self,x, enc_output, src_mask=None, tgt_mask=None):
         self_attention_output = self.self_attention(x,x,x, tgt_mask)
         x = self.norm1(x+self.drop_out(self_attention_output))
-        
         cross_attention_output = self.cross_attention(x, enc_output, enc_output, src_mask)
         x = self.norm2(x + self.drop_out(cross_attention_output))
 
@@ -143,10 +146,4 @@ class Transformer(nn.Module):
         output = self.output_layer(dec_output)
         return output
     
-    def create_causal_mask(size):
-        mask = torch.triu(torch.ones(size, size), diagonal=1).bool()
-        return mask==0
-
-    def generate_padding_mask(seq, pad_idx=0):
-        return (seq != pad_idx).unsqueeze(1).unsqueeze(2)
 
