@@ -1,7 +1,11 @@
 from configs.config import PPOConfig, get_default_config
 from trainer.trainer import PPOTrainer, build_trainer
 from utils.seed import set_global_seed
-
+from env.cartpole_env import build_cartpole_env
+from algorithms.ppo import build_ppo_agent
+from models.policy_network import build_policy_network
+from models.value_network import build_value_network
+from buffers.rollout_buffer import build_rollout_buffer
 
 class TrainingEntry:
     """
@@ -16,7 +20,13 @@ class TrainingEntry:
     def __init__(self, config: PPOConfig):
         super().__init__()
         self.config = config
-
+        
+        self.env = build_cartpole_env()
+        self.policy_network = build_policy_network(self.env.state_dim, self.config.hidden_dim, self.env.action_dim)
+        self.value_network = build_value_network(self.env.state_dim, self.config.hidden_dim)
+        self.agent = build_ppo_agent(self.config, self.policy_network, self.value_network, self.config.device)
+        self.buffer = build_rollout_buffer(self.config)
+        self.trainer = build_trainer(self.config, self.env, self.agent, self.buffer)
         # TODO: 如有需要，在这里缓存命令行参数或运行模式
 
     def run(self) -> PPOTrainer:
@@ -28,7 +38,8 @@ class TrainingEntry:
         """
 
         # TODO: 根据需要调用 set_global_seed、build_trainer 与 trainer.train
-        pass
+        metrics = self.trainer.train()
+        return metrics
 
 
 
@@ -42,7 +53,7 @@ def main() -> None:
     entry = TrainingEntry(config=config)
 
     # TODO: 根据你的学习计划决定何时调用 entry.run()
-    _ = entry
+    _ = entry.run()
 
 
 if __name__ == "__main__":

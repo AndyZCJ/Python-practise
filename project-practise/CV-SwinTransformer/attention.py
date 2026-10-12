@@ -38,7 +38,22 @@ class WindowAttention(nn.Module):
         self.num_heads = num_heads
         head_dim = dim // num_heads
         assert dim % num_heads == 0
+        self.relative_position_bias_table = nn.Parameter(torch.zeros((2 * self.window_size-1)*(2 * self.window_size-1), self.num_heads))
+        nn.init.trunc_normal_(self.relative_position_bias_table, std=0.02)
+        coords_h = torch.arange(self.window_size)
+        coords_w = torch.arange(self.window_size)
+        coords = torch.stack(torch.meshgrid(coords_h, coords_w, indexing='ij')) # (2, w, w)
+        coords_flatten = coords.flatten(1) #(2, N) N=w*w
+        
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]
+        relative_coords = relative_coords.permute(1, 2, 0).contiguous() #(N, N, 2)
 
+        relative_coords[:, :, 0] += self.window_size - 1
+        relative_coords[:, :, 1] += self.window_size - 1
+        relative_coords[:, :, 0] *= 2 * self.window_size -1
+        relative_position_index = relative_coords.sum(-1) #(N, N)
+
+        self.register_buffer("relative_position_index", relative_position_index)
         self.scale = head_dim ** -0.5
 
         self.qkv = nn.Linear(dim, 3 * dim, bias=qkv_bias)
@@ -70,6 +85,11 @@ class WindowAttention(nn.Module):
         value = value.reshape(B_, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
 
         attention = torch.matmul(query, key.transpose(-2, -1))*self.scale# (B_, heads, N, N)
+        relative_position_bias = self.relative_position_bias_table[
+            self.relative_position_index.view(-1)
+        ].view(N, N, self.num_heads)# (N, N, heads)
+        relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous() # (heads, N, N)
+        attention = attention + relative_position_bias.unsqueeze(0)
         if mask is not None:
             mask = mask.to(attention.dtype)
             num_windows = mask.shape[0]

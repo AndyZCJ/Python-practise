@@ -45,7 +45,24 @@ class PPOTrainer:
         """
 
         # TODO: 实现 rollout 采样逻辑
-        pass
+        done = False
+        state = self.env.reset()
+        while not done:
+            action_info = self.agent.select_action(state)
+            next_state, reward, done, truncated, info = self.env.step(action_info["action"])
+            transition = {
+            "state": state,
+            "action": action_info["action"],
+            "reward": reward,
+            "next_state": next_state,
+            "done": done,
+            "log_prob": action_info["log_prob"],
+            "value": action_info["value"]
+            }
+            self.buffer.add(transition)
+            state = next_state
+            action_info = self.agent.select_action(state)
+            self.buffer.compute_returns_and_advantages(next_value=action_info["value"], done=done)
 
     def update_agent(self) -> Dict[str, float]:
         """
@@ -56,7 +73,10 @@ class PPOTrainer:
         """
 
         # TODO: 从缓冲区取出批次并调用智能体更新接口
-        pass
+        for episode in range(self.config.update_epochs):
+            batch = self.buffer.get_batch()
+            metrics = self.agent.update(batch)
+        return metrics
 
     def evaluate(self) -> Dict[str, float]:
         """
@@ -80,7 +100,11 @@ class PPOTrainer:
         """
 
         # TODO: 实现训练主循环
-        pass
+        for epoch in range(self.config.total_epochs):
+            self.collect_rollouts()
+            metrics = self.update_agent()
+        
+        return metrics
 
 
 

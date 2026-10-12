@@ -1,20 +1,39 @@
 # PPO-CartPole
 
-这是一个**学习型项目骨架**，用于帮助你自己实现基于 **PyTorch** 的 **PPO** 算法，并在 **CartPole** 环境上完成训练。
+这是一个用于学习 **PPO + CartPole + PyTorch** 的**骨架型项目**。
 
-## 设计原则
+它的定位不是“直接给出完整答案”，而是：
+- 提前把目录拆好
+- 把模块边界划清楚
+- 在关键位置保留 `TODO`
+- 让你自己把 PPO 的核心逻辑补出来
+
+## 项目定位
+
+这个项目适合用来练习：
+- 如何组织一个最小 PPO 项目结构
+- 策略网络、价值网络与缓冲区分别负责什么
+- rollout、优势估计、损失计算和更新步骤如何串起来
+- 怎样从一个可读的骨架出发，逐步补成完整实现
+
+## 当前特点
 
 - 不直接实现算法核心逻辑
-- 不补全模型结构
-- 不提供训练循环细节
-- 所有关键位置使用 `TODO` 标记
-- 所有注释、说明与文档字符串都使用中文
+- 不补全模型结构细节
+- 不提供完整训练循环
+- 关键函数保留中文 `TODO`
+- 文档字符串、注释和说明都使用中文
+
+也就是说，这个项目是**故意不完整**的，目标是让你亲手实现 PPO，而不是直接复制结果。
 
 ## 目录结构
 
 ```text
 PPO-CartPole/
-│
+├── algorithms/
+│   └── ppo.py
+├── buffers/
+│   └── rollout_buffer.py
 ├── configs/
 │   └── config.py
 ├── env/
@@ -22,10 +41,6 @@ PPO-CartPole/
 ├── models/
 │   ├── policy_network.py
 │   └── value_network.py
-├── algorithms/
-│   └── ppo.py
-├── buffers/
-│   └── rollout_buffer.py
 ├── trainer/
 │   └── trainer.py
 ├── utils/
@@ -35,62 +50,56 @@ PPO-CartPole/
 └── README.md
 ```
 
-## 文件说明
+## 从哪里开始看
 
-### `configs/config.py`
-用于放置 PPO 训练的超参数配置骨架。你可以在这里补充学习率、折扣因子、裁剪系数、批大小等配置。
+建议按下面顺序补全：
 
-### `env/cartpole_env.py`
-用于封装 CartPole 环境的创建、重置、步进与关闭逻辑。你可以在这里统一环境接口。
+1. `configs/config.py`
+2. `env/cartpole_env.py`
+3. `models/policy_network.py`
+4. `models/value_network.py`
+5. `buffers/rollout_buffer.py`
+6. `algorithms/ppo.py`
+7. `trainer/trainer.py`
+8. `train.py`
 
-### `models/policy_network.py`
-用于定义策略网络骨架。你需要自己设计输入层、隐藏层与输出层，并输出离散动作的 logits。
+这样更容易先把数据流和模块边界建立清楚，再回头实现 PPO 更新细节。
 
-### `models/value_network.py`
-用于定义价值网络骨架。你需要自己实现状态价值估计网络，并输出标量价值。
+## 各模块作用
 
-### `algorithms/ppo.py`
-用于放置 PPO 智能体接口。你需要自己实现动作采样、动作评估、损失计算与参数更新等核心内容。
+| 文件 | 作用 |
+| --- | --- |
+| `configs/config.py` | 放置训练超参数和默认配置 |
+| `env/cartpole_env.py` | 封装环境创建、重置、步进与关闭 |
+| `models/policy_network.py` | 定义策略网络骨架 |
+| `models/value_network.py` | 定义价值网络骨架 |
+| `buffers/rollout_buffer.py` | 存储轨迹数据与训练所需字段 |
+| `algorithms/ppo.py` | 实现动作选择、评估与 PPO 更新接口 |
+| `trainer/trainer.py` | 组织采样、优势计算、更新与日志记录 |
+| `utils/logger.py` | 记录训练指标 |
+| `utils/seed.py` | 固定随机种子 |
+| `train.py` | 项目入口，用于串联配置与训练器 |
 
-### `buffers/rollout_buffer.py`
-用于管理采样得到的轨迹数据。你需要自己决定如何存储状态、动作、奖励、终止标记、旧策略概率与价值估计。
+## 补全时值得重点思考的问题
 
-### `trainer/trainer.py`
-用于组织训练流程。你需要自己设计 rollout 采样、优势计算、参数更新、评估和保存模型的完整流程。
+- 策略网络输出应该是 logits 还是概率
+- 价值网络输出 shape 如何保持稳定
+- 缓冲区该按“字段分桶”还是“transition 列表”来存
+- GAE 的计算顺序和终止状态处理怎么写
+- PPO clip loss、value loss、entropy bonus 如何组合
+- 一次 rollout 后如何切 mini-batch 做多轮更新
 
-### `utils/logger.py`
-用于记录训练指标、保存历史数据和打印摘要。你可以在这里扩展控制台日志、文件日志和可视化输出。
+## 使用建议
 
-### `utils/seed.py`
-用于统一设置随机种子，帮助你做实验复现。
-
-### `train.py`
-项目入口文件。你可以从这里串联配置、随机种子、训练器构建与训练启动。
-
-## 推荐补全顺序
-
-1. 先补全 `env/cartpole_env.py`
-2. 再实现 `models/policy_network.py` 与 `models/value_network.py`
-3. 然后实现 `buffers/rollout_buffer.py`
-4. 接着补全 `algorithms/ppo.py`
-5. 最后完成 `trainer/trainer.py` 与 `train.py`
-
-## 你可以重点思考的问题
-
-- 策略网络应该输出 logits 还是概率
-- 价值网络输出的张量形状应该如何统一
-- rollout 数据应该按时间步组织还是按批次组织
-- GAE 的计算过程如何实现
-- PPO 裁剪目标如何写得清晰且稳定
-- 训练过程中应该记录哪些关键指标
-
-## 语法检查
-
-你可以在项目根目录下运行下面的命令检查语法：
+如果你只是想检查骨架是否能被 Python 正常解析，可以在仓库根目录运行：
 
 ```powershell
 python -m compileall .\project-practise\PPO-CartPole
 ```
 
-这个骨架是故意不完整的，目的是让你亲自实现每个关键模块，从而真正理解 PPO 的实现过程。
+如果你准备真正补代码，建议每补完一个模块就单独做一次最小测试，而不是把所有逻辑一次性写完。
+
+## 一句话总结
+
+这个目录不是现成答案，而是一个为“自己动手实现 PPO”准备的学习型项目框架。
 

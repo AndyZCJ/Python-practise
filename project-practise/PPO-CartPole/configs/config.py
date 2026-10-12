@@ -18,18 +18,19 @@ class PPOConfig:
     seed: int = 1
     state_dim: Optional[int] = None
     action_dim: Optional[int] = None
+    buffer_size: int = 10000
     hidden_dim: int = 128
-    rollout_steps: int = 0
-    total_epochs: int = 0
-    learning_rate: float = 0.0
-    gamma: float = 0.0
-    gae_lambda: float = 0.0
-    clip_epsilon: float = 0.0
-    value_coef: float = 0.0
-    entropy_coef: float = 0.0
-    batch_size: int = 0
-    update_epochs: int = 0
-    log_interval: int = 0
+    rollout_steps: int = 128 #cartpole常见取值128, 256, 512, 1024
+    total_epochs: int = 10
+    learning_rate: float = 1e-3
+    gamma: float = 0.98
+    gae_lambda: float = 0.95
+    clip_epsilon: float = 0.1
+    value_coef: float = 0.5 #价值损失项的权重系数
+    entropy_coef: float = 0.01 #熵正则项的权重
+    batch_size: int = 32
+    update_epochs: int = 10
+    log_interval: int = 10
     save_dir: str = "outputs"
 
 
